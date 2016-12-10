@@ -14,7 +14,7 @@
 //using std::vector;
 CLICK_DECLS
 
-tcp_entity::tcp_entity() : _timer(this){	
+tcp_entity::tcp_entity() : _fin_timer(this), _ack_timer(this){	
 }
 
 tcp_entity::~tcp_entity(){	
@@ -36,10 +36,11 @@ int tcp_entity :: configure(Vector<String> &conf, ErrorHandler *errh)
 /*
 
 */
+
 int tcp_entity::initialize(ErrorHandler*)
 {
-	_timer.initialize(this);
-	_timer.schedule_now();
+	_fin_timer.initialize(this);
+	_ack_timer.initialize(this);
 	_control_block.nxt_ack = 0;
 	_control_block.nxt_seq = 0;
 	_control_block.tcp_port = 0;
@@ -56,6 +57,8 @@ void tcp_entity::push (int port, Packet *packet)
 	{
 		if(tcp_entity_type == 0)//tcp as cilent role
 		{
+			fprintf(stderr, "Wrong input, tcp client could not send data actively.\n");
+			packet->kill();
 			// should not recieve anything from client
 		}
 		
@@ -67,12 +70,12 @@ void tcp_entity::push (int port, Packet *packet)
 	
 	if(port == 1) // from ip
 	{
-		tcp_types ptype = (MyTCPHeader*)packet->type;
-		int seq = (MyTCPHeader*)packet->sequence;
-		int ack = (MyTCPHeader*)packet->ack_num;
-		int sport = (MyTCPHeader*)packet->source;
-		int dport = (MyTCPHeader*)packet->destination;
-		int sipaddr = (MyTCPHeader*)packet->source_ip;
+		tcp_types ptype = (tcp_header*)packet->type;
+		int seq = ntohs((tcp_header*)packet->sequence);
+		int ack = ntohs((tcp_header*)packet->ack_num);
+		int sport = ntohs((tcp_header*)packet->source);
+		int dport = ntohs((tcp_header*)packet->destination);
+		int sipaddr = ntohl((tcp_header*)packet->source_ip);
 		if(tcp_entity_type == 0)//client
 		{
 			switch(_control_block.state)
@@ -86,25 +89,24 @@ void tcp_entity::push (int port, Packet *packet)
 			}
 			case SYN_SENT:
 			{
+				//expecting SYN_ACK
 				if(ptype != SYN+ACK || ntohl(sipaddr) != _control_block.ipaddr)
 				{
 					fprintf(stderr, "wrong packet, tcp client is waiting for SYNACK.\n");
 					packet->kill();
 					break;
 				}
-				// sending ACK_DATA
-				assert(pbuff);
-				uint32_t tlen = pbuff->length();
-				WritablePacket *ack_pack = pbuff->clone()->push(sizeof(MyTCPHeader));
-				(MyTCPHeader*)ack_pack->type = ACK+DATA;
-				(MyTCPHeader*)ack_pack->sequence = htons(_control_block.nxt_seq);
-				(MyTCPHeader*)ack_pack->ack_num = htons((seq + 1) % 2);
-				(MyTCPHeader*)ack_pack->source = htons(_my_port_number);
-				(MyTCPHeader*)ack_pack->destination = htons(_control_block.tcpport);
-				(MyTCPHeader*)ack_pack->size = htonl(tlen);
+				//send ACK
+				nxt_ack = (nxt_ack + 1) % 2;
+				WritablePacket *ack_pack = Packet::make(0,0,sizeof(tcp_header) + sizeof(ip_header),0);//leaving the space for ip_header
+				memset(ack_pack,0,ack_pack->length);
+				(tcp_header*)ack_pack->type = ACK;
+				(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
+				(tcp_header*)ack_pack->source = htons(_my_port_number);
+				(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
+				(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
+				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
 				output(1).push(ack_pack);
-				pbuff->kill();
-				_control_block.state = ESTAB;
 				break;
 			}
 			
@@ -112,11 +114,76 @@ void tcp_entity::push (int port, Packet *packet)
 			{
 				//check the seq, send ack to ip and pass data to client if correct.
 				//if recieve fin, send ack+fin to ip, change to FIN_WAIT state
+				if(ptype != FIN+DATA && ptye != DATA)
+				{
+					fprintf(stderr, "wrong packet, tcp client is waiting for DATA or FIN.\n");
+					packet->kill();
+					break;
+				}
+				
+				if(seq != nxt_ack)
+				{
+					packet->kill();
+					break;
+				}
+				
+				if(ptype == FIN+DATA)
+				{
+					nxt_ack = (nxt_ack + 1) % 2;
+					WritablePacket *ack_pack = Packet::make(0,0,sizeof(tcp_header) + sizeof(ip_header),0);//leaving the space for ip_header
+					memset(ack_pack,0,ack_pack->length);
+					(tcp_header*)ack_pack->type = FIN+ACK;
+					(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
+					(tcp_header*)ack_pack->source = htons(_my_port_number);
+					(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
+					(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
+					(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+					output(1).push(ack_pack);
+					_fin_timer.schedule_after_sec(2 * _time_out);
+					_control_block.stat = FIN_WAIT;
+					break;
+				}
+				
+				
+				else
+				{
+					nxt_ack = (nxt_ack + 1) % 2;
+					WritablePacket *data_pack = Packet::make(0,0,packet.length() - sizeof(tcp_header),0)
+					memcpy(data_pack, (char*)packet + sizeof(tcp_header), packet.length() - sizeof(tcp_header));
+					output(0).push(data_pack);
+					WritablePacket *ack_pack = Packet::make(0,0,sizeof(tcp_header) + sizeof(ip_header),0);//leaving the space for ip_header
+					memset(ack_pack,0,ack_pack->length);
+					(tcp_header*)ack_pack->type = ACK;
+					(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
+					(tcp_header*)ack_pack->source = htons(_my_port_number);
+					(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
+					(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
+					(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+					_fin_timer.schedule_after_sec(_time_out);// to be modified
+					output(1).push(ack_pack);
+					break;
+					
+				}
 			}
+				
+			
 			
 			case FIN_WAIT:
 			{
 				//waiting for ack, if recieved ack or time-out, change to CLOSED state
+				if(ptype != ACK || ack != _control_block.nxt_seq)
+				{
+					fprintf(stderr, "wrong packet, tcp client is waiting for ACK of FIN.\n");
+					packet->kill();
+					break;
+				}
+				else
+				{
+					_control_block.nxt_ack = _control_block.nxt_seq = 0;
+					state = CLOSED;
+					break;
+				}
+				
 			}
 		
 		}
@@ -128,22 +195,142 @@ void tcp_entity::push (int port, Packet *packet)
 			case LISTEN:
 			{
 				//Expecting SYN request. When recieved, send SYN_ACK to ip and set the <ip,port> tuple in tcb.
+				if(ptype != SYN) // assuming that SYN's seq is always 0
+				{
+					fprintf(stderr, "wrong packet, tcp server is waiting for SYN.\n");
+					packet->kill();
+					break;
+				}
+				nxt_ack = (nxt_ack + 1) % 2;
+				_control_block.ipaddr = sipaddr;
+				_control_block.tcpport = sport;
+				WritablePacket *ack_pack = Packet::make(0,0,sizeof(tcp_header) + sizeof(ip_header),0);//leaving the space for ip_header
+				memset(ack_pack,0,ack_pack->length);
+				(tcp_header*)ack_pack->type = SYN+ACK;
+				(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
+				(tcp_header*)ack_pack->source = htons(_my_port_number);
+				(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
+				(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
+				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+				output(1).push(ack_pack);
 			}
 			case SYN_WAIT:
 			{
-				//Waiting for ACK_DATA. When recieved, pass data to client and send ack to ip, change to ESTAB state.
+				//Waiting for ACK. When recieved, send ack+data to ip, change to ESTAB state.
+				if(sipaddr != _control_block.ipaddr || sport != _control_block.tcpport)
+				{
+					fprintf(stderr, "Recieved packet from an unconnected socket while busy.\n");
+					packet->kill();
+					break;
+				}
+				if(ptype != ACK+DATA || seq != nxt_ack) 
+				{
+					fprintf(stderr, "wrong packet, tcp server is waiting for ACK+DATA.\n");
+					packet->kill();
+					break;
+				}
+				nxt_ack = (nxt_ack + 1) % 2;
+				WritablePacket *data_pack = Packet::make(0,0,packet.length() - sizeof(tcp_header),0)
+				memcpy(data_pack, (char*)packet + sizeof(tcp_header), packet.length() - sizeof(tcp_header));
+				output(0).push(data_pack);
+				// sending ACK+DATA
+				assert(pbuff.front());
+				uint32_t tlen = pbuff.front()->length();
+				WritablePacket *ack_pack = pbuff.front()->clone()->push(sizeof(tcp_header));// add the header on
+				
+				(tcp_header*)ack_pack->type = ACK+DATA;
+				(tcp_header*)ack_pack->sequence = htons(_control_block.nxt_seq);
+				(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
+				(tcp_header*)ack_pack->source = htons(_my_port_number);
+				(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
+				(tcp_header*)ack_pack->size = htonl(tlen);
+				(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
+				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+				nxt_seq = (nxt_seq + 1) % 2;
+				pbuff.pop_front();
+				_control_block.state = ESTAB;
+				output(1).push(ack_pack);
+				break;			
 			}
 			
 			case ESTAB:
 			{
 				//Expecting ack, set the seq.
+				if(sipaddr != _control_block.ipaddr || sport != _control_block.tcpport)
+				{
+					fprintf(stderr, "Recieved packet from an unconnected socket while busy.\n");
+					packet->kill();
+					break;
+				}
+				
+				if(ptype != ACK || ack != nxt_seq) 
+				{
+					fprintf(stderr, "wrong packet, tcp server is waiting for ACK+DATA.\n");
+					packet->kill();
+					break;
+				}
+				
+				if(pbuff.empty())
+				{
+					WritablePacket *fin_pack = Packet::make(0,0,sizeof(tcp_header) + sizeof(ip_header),0);//leaving the space for ip_header
+					memset(fin_pack,0,fin_pack->length);
+					(tcp_header*)fin_pack->type = FIN;
+					(tcp_header*)fin_pack->source = htons(_my_port_number);
+					(tcp_header*)fin_pack->destination = htons(_control_block.tcpport);
+					(tcp_header*)fin_pack->source_ip = htonl(_my_ipaddr);
+					(tcp_header*)fin_pack->dest_ip = htonl(sipaddr);
+					output(1).push(fin_pack);
+					break;
+				}
+				uint32_t tlen = pbuff.front()->length();
+				WritablePacket *ack_pack = pbuff.front()->clone()->push(sizeof(tcp_header));// add the header on
+				
+				(tcp_header*)ack_pack->type = DATA;
+				(tcp_header*)ack_pack->sequence = htons(_control_block.nxt_seq);
+				(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
+				(tcp_header*)ack_pack->source = htons(_my_port_number);
+				(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
+				(tcp_header*)ack_pack->size = htonl(tlen);
+				(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
+				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+				nxt_seq = (nxt_seq + 1) % 2;
+				pbuff.pop_front();
+				output(1).push(ack_pack);
+				
 			}
+			
 			case FIN_SENT:
 			{
 				//Waiting for ack of fin. Change to LISTEN when ack recieved or time-out.
+				if(sipaddr != _control_block.ipaddr || sport != _control_block.tcpport)
+				{
+					fprintf(stderr, "Recieved packet from an unconnected socket while busy.\n");
+					packet->kill();
+					break;
+				}
+				
+				if(ptype != ACK+FIN) 
+				{
+					fprintf(stderr, "wrong packet, tcp server is waiting for ACK+DATA.\n");
+					packet->kill();
+					break;
+				}
+				_control_block.nxt_ack = _control_block.nxt_seq = 0;
+				state = LISTEN;
+				break;
+				
 			}
 		}
 }
-
+void BasicClient::run_timer(Timer *timer) {
+    if(timer == _fin_timer)
+	{
+		
+	}
+	else if(timer == _ack_timer)
+	{
+		
+	}
+}
 CLICK_ENDDECLS
 #endif 

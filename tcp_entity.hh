@@ -22,10 +22,11 @@ class tcp_entity : public Element {
         int initialize(ErrorHandler*);
 		
     private: 
-        Timer _timer;
+        Timer _fin_timer;
+		Timer _ack_timer;
 		TCB _control_block;
 		int tcp_entity_type; //0 for client, 1 for server
-		int ipaddr;
+		uint32_t _my_ipaddr;
 		uint32_t _time_out;
 		uint16_t _my_port_number;
 		
