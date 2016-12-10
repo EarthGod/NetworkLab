@@ -7,9 +7,11 @@ typedef enum {
 // SYN + ACK represents SYN_ACK
 struct MyTCPHeader{
      tcp_types type; 
-	 uint8_t sequence;
-	 uint8_t source;
-	 uint8_t ack_num;
-	 uint8_t destination;
+	 uint16_t sequence;
+	 uint16_t source;
+	 uint16_t ack_num;
+	 uint16_t destination;
      uint32_t size;
+	 uint32_t source_ip; // these are not real header data in tcp header
+	 uint32_t dest_ip;   // they are used for passing argument to ip layer
 };

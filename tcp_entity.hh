@@ -13,7 +13,7 @@ class tcp_entity : public Element {
         tcp_entity();
         ~tcp_entity();
         const char *class_name() const { return "tcp_entity";}
-        const char *port_count() const { return "1-/1-";}
+        const char *port_count() const { return "2-/2-";}
         const char *processing() const { return PUSH; }
 		int configure(Vector<String> &conf, ErrorHandler *errh);
 		
@@ -24,9 +24,10 @@ class tcp_entity : public Element {
     private: 
         Timer _timer;
 		TCB _control_block;
+		int tcp_entity_type; //0 for client, 1 for server
 		int ipaddr;
 		uint32_t _time_out;
-		uint32_t _my_port_number;
+		uint16_t _my_port_number;
 		
 }; 
 
