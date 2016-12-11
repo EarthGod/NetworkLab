@@ -62,7 +62,7 @@ class tcpEntity : public Element {
 		TimerInfo _fin_tif;
 		TimerInfo _ack_tif;
 		TCB _control_block;
-		int tcpEntity_type; //0 for client, 1 for server
+		uint32_t tcpEntity_type; //0 for client, 1 for server
 		uint32_t _my_ipaddr;
 		uint32_t _time_out;//msec
 		uint16_t _my_port_number;

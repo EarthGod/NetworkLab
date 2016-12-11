@@ -8,7 +8,7 @@
 using std::map;
 
 //NOT GOOD; SHOULD KNOW HOW MANY PORTS ARE DEFINED IN xx.click
-#define PORTCOUNT 10
+#define PORTCOUNT (this->nports(false))
 #define POINTCOUNT 50
 #define INF 1000000
 #define TIMERPERIOD 3
@@ -103,7 +103,7 @@ void ip::push(int port, Packet *packet) {
 			packet->kill();
 			return;
 		}
-		click_chatter("Received packet from %u on port %d", tcpheader->source, port);
+		click_chatter("Received packet from %x on port %d, type: %d", tcpheader->source, port,tcpheader->type);
 		//wrap
 		WritablePacket* newpacket = Packet::make(NULL,sizeof(struct MyIPHeader)+(tcpheader->size));
 	    struct MyIPHeader* format = (struct MyIPHeader*) newpacket->data();
@@ -123,7 +123,7 @@ void ip::push(int port, Packet *packet) {
 			packet->kill();
 			return;
 		}
-		click_chatter("Received packet from %u on port %d, type: %d", ipheader->source, port, ipheader->type);
+		click_chatter("Received packet from %x on port %d, type: %d", ipheader->source, port, ipheader->type);
 		if (ipheader->type == HELLO){
 			//HELLO: return the topology this router know
 			WritablePacket* newpacket = Packet::make(NULL,sizeof(struct MyIPHeader));

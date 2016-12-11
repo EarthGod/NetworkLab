@@ -36,8 +36,7 @@ int PacketGenerator::initialize(ErrorHandler *errh){
 void PacketGenerator::run_timer(Timer *timer) {
     assert(timer == &_timer);
     int tmp = 0xffffffff;
-    WritablePacket *packet = Packet::make(NULL,5);
-    memcpy(packet, &tmp, 4);
+    WritablePacket *packet = Packet::make(&tmp,5);
     output(0).push(packet);
     _timer.reschedule_after_sec(2);
 }

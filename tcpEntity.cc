@@ -17,7 +17,7 @@ int tcpEntity :: configure(Vector<String> &conf, ErrorHandler *errh)
 {
 	if (cp_va_kparse(conf, this, errh,
                   "MY_PORT_NUM", cpkP+cpkM, cpTCPPort, &_my_port_number,
-				  "TYPE", cpkP+cpkM, cpUnsignedShort, &tcpEntity_type,
+				  "TYPE", cpkP+cpkM, cpUnsigned, &tcpEntity_type,
                   "TIME_OUT", cpkP+cpkM, cpUnsigned, &_time_out,
                   "MY_IP_ADDR", cpkP+cpkM, cpIPAddress, &_my_ipaddr,
                   cpEnd) < 0) {
@@ -85,6 +85,7 @@ void tcpEntity::push (int port, Packet *packet)
 		if(tcpEntity_type == 0)//tcp as cilent role
 		{
 			fprintf(stderr, "Wrong input, tcp client could not send data actively.\n");
+			fprintf(stderr, "Type is %d My port num is %d, MY ipaddr is %x, Time_out is %d\n",tcpEntity_type, _my_port_number, _my_ipaddr, _time_out);
 			packet->kill();
 			// should not recieve anything from client
 		}
@@ -98,7 +99,7 @@ void tcpEntity::push (int port, Packet *packet)
 			memcpy(wp,packet+sizeof(MyClientHeader),packet->length());
 			_control_block.pbuff.push_back(wp); //put data in queue
 			
-			WritablePacket* syn_pack = Packet::make(NULL,sizeof(MyTCPHeader)+sizeof(MyIPHeader));
+			WritablePacket* syn_pack = Packet::make(NULL,sizeof(MyTCPHeader));
 			((MyTCPHeader*)syn_pack)->type = SYN;
 			((MyTCPHeader*)syn_pack)->ack_num = _control_block.nxt_ack;
 			((MyTCPHeader*)syn_pack)->source = _my_port_number;

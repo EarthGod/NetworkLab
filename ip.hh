@@ -26,6 +26,8 @@ class ip : public Element {
         void dijkstra();
 		
 	private:
+        
+
         uint32_t ip_addr;
 		map<uint32_t, int> ip_port_table;
         map<int, uint32_t> port_ip_table;
