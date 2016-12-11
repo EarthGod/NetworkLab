@@ -5,6 +5,7 @@
 #include <click/hashtable.hh>
 #include <map>
 #include "packets.hh"
+using std::map;
 
 CLICK_DECLS
 
@@ -19,6 +20,10 @@ class ip : public Element {
 		
 		void push(int port, Packet *packet);
         int initialize(ErrorHandler*);
+        int configure(Vector<String> &conf, ErrorHandler *errh);
+        void run_timer(Timer *timer);
+        int findport(int portnum);
+        void dijkstra();
 		
 	private:
         uint32_t ip_addr;
@@ -28,6 +33,7 @@ class ip : public Element {
         int dist[maxn];
         int path[maxn];
         Timer timer_update;
+        Timer timer_hello;
 }; 
 
 CLICK_ENDDECLS

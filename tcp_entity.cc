@@ -1,5 +1,3 @@
-#ifndef CLICK_BASICCLIENT_HH 
-#define CLICK_BASICCLIENT_HH 
 #include <click/element.hh>
 #include <click/timer.hh>
 #include <click/config.h>
@@ -9,7 +7,7 @@
 #include <click/packet.hh>
 //#include <vector>
 #include "tcp_entity.hh"
-#include "transmissionControlBlock.hh"
+#include "packets.hh"
 
 //using std::vector;
 CLICK_DECLS

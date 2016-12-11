@@ -1,8 +1,9 @@
-#ifndef CLICK_BASICCLIENT_HH 
-#define CLICK_BASICCLIENT_HH 
+#ifndef CLICK_TCPENTITY_HH 
+#define CLICK_TCPENTITY_HH 
 #include <click/element.hh>
 #include <click/timer.hh>
 #include <deque>
+#include "packets.hh"
 using std::deque;
 CLICK_DECLS
 
@@ -53,6 +54,7 @@ class tcp_entity : public Element {
 		void push(int port, Packet *packet);
         int initialize(ErrorHandler*);
 		void set_resend_timer(Timer* _timer, TimerInfo tif);
+		void run_timer(Timer *timer);
 		void cancel_timer(Timer* _timer, TimerInfo tif);
     private: 
         Timer _fin_timer;
