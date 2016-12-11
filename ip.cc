@@ -30,7 +30,9 @@ ip::~ip(){
 
 int ip::initialize(ErrorHandler *errh){
 	timer_update.initialize(this);
-	timer_update.schedule_after_sec(4);
+	timer_hello.initialize(this);
+	timer_update.schedule_now();
+	timer_hello.schedule_now();
     return 0;
 }
 
@@ -95,7 +97,7 @@ void ip::push(int port, Packet *packet) {
 	assert(packet);
 	//Assume that IP get packet from TCP through data 0;
 	if(port == 0){
-		struct tcp_Header *tcpheader = (struct tcp_Header*)packet->data();
+		struct MyTCPHeader *tcpheader = (struct MyTCPHeader*)packet->data();
 		if (this->ip_port_table.find(tcpheader->dest_ip) == this->ip_port_table.end()){
 			click_chatter("NOT FOUND IN ROUTER TABLE: %d; PORT: %d;", tcpheader->dest_ip, port);
 			packet->kill();

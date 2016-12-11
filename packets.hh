@@ -8,7 +8,7 @@ typedef enum {
 	BROAD = 64,
 } packet_types;
 // SYN + ACK represents SYN_ACK
-struct tcp_Header{
+struct MyTCPHeader{
      packet_types type; 
 	 uint16_t sequence;
 	 uint16_t ack_num;
