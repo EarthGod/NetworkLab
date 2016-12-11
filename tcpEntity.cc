@@ -111,7 +111,7 @@ void tcpEntity::push (int port, Packet *packet)
 			((MyTCPHeader*)syn_pack->data())->source_ip = _my_ipaddr;
 			((MyTCPHeader*)syn_pack->data())->dest_ip = dstip;
 			set_resend_timer(&_ack_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,syn_pack));
-			output(1).push(syn_pack);
+			output(0).push(syn_pack);
 		}
 	}
 	
@@ -149,7 +149,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)ack_pack->data())->source_ip = (_my_ipaddr);
 				((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
 				set_resend_timer(&_ack_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
-				output(1).push(ack_pack);
+				output(0).push(ack_pack);
 				
 			}
 			
@@ -172,7 +172,7 @@ void tcpEntity::push (int port, Packet *packet)
 				_control_block.nxt_ack = (_control_block.nxt_ack + 1) % 2;
 				WritablePacket *data_pack = Packet::make(NULL,packet->length() - sizeof(MyTCPHeader));
 				memcpy(data_pack, (char*)packet + sizeof(MyTCPHeader), packet->length() - sizeof(MyTCPHeader));
-				output(0).push(data_pack);
+				output(1).push(data_pack);
 				// sending ACK+DATA
 				
 				assert(_control_block.pbuff.front());
@@ -192,7 +192,7 @@ void tcpEntity::push (int port, Packet *packet)
 				_control_block.pbuff.pop_front();
 				_control_block.state = ESTAB;
 				set_resend_timer(&_ack_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
-				output(1).push(ack_pack);
+				output(0).push(ack_pack);
 				break;			
 			}
 			case ESTAB:
@@ -223,7 +223,7 @@ void tcpEntity::push (int port, Packet *packet)
 					((MyTCPHeader*)ack_pack->data())->destination = (_control_block.tcpport);
 					((MyTCPHeader*)ack_pack->data())->source_ip = (_my_ipaddr);
 					((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
-					output(1).push(ack_pack);
+					output(0).push(ack_pack);
 					set_resend_timer(&_ack_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
 					set_resend_timer(&_fin_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
 					_control_block.state = FIN_WAIT;
@@ -249,7 +249,7 @@ void tcpEntity::push (int port, Packet *packet)
 					((MyTCPHeader*)ack_pack->data())->source_ip = _my_ipaddr;
 					((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
 					set_resend_timer(&_ack_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
-					output(1).push(ack_pack);
+					output(0).push(ack_pack);
 					break;
 					
 				}
@@ -309,7 +309,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)ack_pack->data())->source_ip = (_my_ipaddr);
 				((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
 				set_resend_timer(&_ack_timer, TimerInfo(SYN_SENT,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
-				output(1).push(ack_pack);
+				output(0).push(ack_pack);
 				break;
 			}
 			
@@ -341,7 +341,7 @@ void tcpEntity::push (int port, Packet *packet)
 					((MyTCPHeader*)fin_pack->data())->source_ip = (_my_ipaddr);
 					((MyTCPHeader*)fin_pack->data())->dest_ip = (sipaddr);
 					set_resend_timer(&_fin_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,fin_pack));
-					output(1).push(fin_pack);
+					output(0).push(fin_pack);
 					break;
 				}
 				cancel_timer(&_ack_timer, _ack_tif);
@@ -359,7 +359,7 @@ void tcpEntity::push (int port, Packet *packet)
 				_control_block.nxt_seq = (_control_block.nxt_seq + 1) % 2;
 				_control_block.pbuff.pop_front();
 				set_resend_timer(&_ack_timer, TimerInfo(ESTAB,_control_block.nxt_seq,_control_block.nxt_ack,ack_pack));
-				output(1).push(ack_pack);
+				output(0).push(ack_pack);
 				
 			}
 			
@@ -398,7 +398,7 @@ void tcpEntity::run_timer(Timer *timer) {
 	}
 	else if(timer == &_ack_timer)
 	{
-		output(1).push(_ack_tif.pack);
+		output(0).push(_ack_tif.pack);
 	}
 	return;
 }
