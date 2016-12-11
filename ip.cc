@@ -38,7 +38,7 @@ int ip::initialize(ErrorHandler *errh){
 
 int ip::configure(Vector<String> &conf, ErrorHandler *errh) {
   if (cp_va_kparse(conf, this, errh,
-                  "IP_ADDR", cpkP+cpkM, cpUnsigned, &ip_addr,
+                  "IP_ADDR", cpkP+cpkM, cpIPAdress, &ip_addr,
                   cpEnd) < 0) {
     return -1;
   }

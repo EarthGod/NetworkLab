@@ -16,10 +16,10 @@ tcpEntity::~tcpEntity(){
 int tcpEntity :: configure(Vector<String> &conf, ErrorHandler *errh)
 {
 	if (cp_va_kparse(conf, this, errh,
-                  "MY_PORT_NUM", cpkP+cpkM, cpUnsigned, &_my_port_number,
-				  "TYPE", cpkP+cpkM, cpUnsigned, &tcpEntity_type,
+                  "MY_PORT_NUM", cpkP+cpkM, cpTCPPort, &_my_port_number,
+				  "TYPE", cpkP+cpkM, cpUnsignedShort, &tcpEntity_type,
                   "TIME_OUT", cpkP+cpkM, cpUnsigned, &_time_out,
-                  "MY_IP_ADDR", cpkP+cpkM, cpUnsigned, &_my_ipaddr,
+                  "MY_IP_ADDR", cpkP+cpkM, cpIPAddress, &_my_ipaddr,
                   cpEnd) < 0) {
     return -1;
 	}
