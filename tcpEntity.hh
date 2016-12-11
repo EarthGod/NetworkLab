@@ -34,7 +34,7 @@ public:
 	uint16_t tseq;
 	uint16_t tack;
 	WritablePacket* pack;
-	Timerinfo(){};
+	TimerInfo(){};
 
 	TimerInfo(stat _tstat, uint16_t _tseq, uint16_t _tack, WritablePacket* _pack){
 		tstat = _tstat;tseq = _tseq;tack = _tack;pack = _pack;
@@ -59,8 +59,8 @@ class tcpEntity : public Element {
     private: 
         Timer _fin_timer;
 		Timer _ack_timer;
-		TimerInfo *_fin_tif;
-		TimerInfo *_ack_tif;
+		TimerInfo _fin_tif;
+		TimerInfo _ack_tif;
 		TCB _control_block;
 		int tcpEntity_type; //0 for client, 1 for server
 		uint32_t _my_ipaddr;
