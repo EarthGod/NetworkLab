@@ -38,7 +38,7 @@ int ip::initialize(ErrorHandler *errh){
 
 int ip::configure(Vector<String> &conf, ErrorHandler *errh) {
   if (cp_va_kparse(conf, this, errh,
-                  "IP_ADDR", cpkP+cpkM, cpIPAdress, &ip_addr,
+                  "IP_ADDR", cpkP+cpkM, cpIPAddress, &ip_addr,
                   cpEnd) < 0) {
     return -1;
   }
@@ -54,7 +54,7 @@ void ip::run_timer(Timer *timer){
 			for (int j = 0; j < POINTCOUNT; ++j)
 				if(this->adjacentMatrix[i][j] != INF)
 					cnt++;
-		WritablePacket *packet = Packet::make(0,0,sizeof(struct MyIPHeader)+12*cnt, 0);
+		WritablePacket *packet = Packet::make(NULL,sizeof(struct MyIPHeader)+12*cnt);
 	    struct MyIPHeader *format = (struct MyIPHeader*) packet->data();
 	    format->type = BROAD;
 		format->source = this->ip_addr;
@@ -77,7 +77,7 @@ void ip::run_timer(Timer *timer){
 	    timer_update.schedule_after_sec(TIMERPERIOD);
 	}
 	else if(timer == &this->timer_hello){
-		WritablePacket *packet = Packet::make(0,0,sizeof(struct MyIPHeader), 0);
+		WritablePacket *packet = Packet::make(NULL, sizeof(struct MyIPHeader));
 	    struct MyIPHeader *format = (struct MyIPHeader*) packet->data();
 	    format->type = HELLO;
 		format->source = this->ip_addr;
@@ -105,7 +105,7 @@ void ip::push(int port, Packet *packet) {
 		}
 		click_chatter("Received packet from %u on port %d", tcpheader->source, port);
 		//wrap
-		WritablePacket* newpacket = Packet::make(0,0,sizeof(struct MyIPHeader)+(tcpheader->size), 0);
+		WritablePacket* newpacket = Packet::make(NULL,sizeof(struct MyIPHeader)+(tcpheader->size));
 	    struct MyIPHeader* format = (struct MyIPHeader*) newpacket->data();
 	    format->type = DATA; //DATA
 		format->source = tcpheader->source_ip;
@@ -126,7 +126,7 @@ void ip::push(int port, Packet *packet) {
 		click_chatter("Received packet from %u on port %d, type: %d", ipheader->source, port, ipheader->type);
 		if (ipheader->type == HELLO){
 			//HELLO: return the topology this router know
-			WritablePacket* newpacket = Packet::make(0,0,sizeof(struct MyIPHeader), 0);
+			WritablePacket* newpacket = Packet::make(NULL,sizeof(struct MyIPHeader));
 			struct MyIPHeader* format = (struct MyIPHeader*) newpacket->data();
 	   		format->type = RESP; //RESP
 			format->source = this->ip_addr;
@@ -171,7 +171,7 @@ void ip::push(int port, Packet *packet) {
 		}
 		if (ipheader->destination == this->ip_addr){
 			//push to TCP through port 0;
-			WritablePacket* newpacket = Packet::make(0,0,ipheader->size - sizeof(MyIPHeader), 0);
+			WritablePacket* newpacket = Packet::make(NULL, ipheader->size - sizeof(MyIPHeader));
 			memcpy(newpacket, packet->data()+sizeof(MyIPHeader), ipheader->size - sizeof(MyIPHeader));
 			output(0).push(newpacket);
 			return;

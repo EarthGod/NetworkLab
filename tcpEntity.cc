@@ -94,11 +94,11 @@ void tcpEntity::push (int port, Packet *packet)
 			uint16_t dstport = ((MyClientHeader* )packet)->dst_port;
 			uint16_t dstip = ((MyClientHeader* )packet)->dst_ip;
 			
-			WritablePacket* wp = Packet::make(0,0,packet->length()-sizeof(MyClientHeader),0);
+			WritablePacket* wp = Packet::make(NULL,packet->length()-sizeof(MyClientHeader));
 			memcpy(wp,packet+sizeof(MyClientHeader),packet->length());
 			_control_block.pbuff.push_back(wp); //put data in queue
 			
-			WritablePacket* syn_pack = Packet::make(0,0,sizeof(MyTCPHeader)+sizeof(MyIPHeader),0);
+			WritablePacket* syn_pack = Packet::make(NULL,sizeof(MyTCPHeader)+sizeof(MyIPHeader));
 			((MyTCPHeader*)syn_pack)->type = SYN;
 			((MyTCPHeader*)syn_pack)->ack_num = _control_block.nxt_ack;
 			((MyTCPHeader*)syn_pack)->source = _my_port_number;
@@ -135,7 +135,7 @@ void tcpEntity::push (int port, Packet *packet)
 				_control_block.nxt_ack = (_control_block.nxt_ack + 1) % 2;
 				_control_block.ipaddr = sipaddr;
 				_control_block.tcpport = sport;
-				WritablePacket *ack_pack = Packet::make(0,0,sizeof(MyTCPHeader) + sizeof(MyIPHeader),0);//leaving the space for MyIPHeader
+				WritablePacket *ack_pack = Packet::make(NULL, sizeof(MyTCPHeader) + sizeof(MyIPHeader));//leaving the space for MyIPHeader
 				memset(ack_pack,0,ack_pack->length());
 				((MyTCPHeader*)ack_pack)->type = SYN+ACK;
 				((MyTCPHeader*)ack_pack)->ack_num = (_control_block.nxt_ack);
@@ -165,7 +165,7 @@ void tcpEntity::push (int port, Packet *packet)
 				}
 				cancel_timer(&_ack_timer, _ack_tif);
 				_control_block.nxt_ack = (_control_block.nxt_ack + 1) % 2;
-				WritablePacket *data_pack = Packet::make(0,0,packet->length() - sizeof(MyTCPHeader),0);
+				WritablePacket *data_pack = Packet::make(NULL,packet->length() - sizeof(MyTCPHeader));
 				memcpy(data_pack, (char*)packet + sizeof(MyTCPHeader), packet->length() - sizeof(MyTCPHeader));
 				output(0).push(data_pack);
 				// sending ACK+DATA
@@ -209,7 +209,7 @@ void tcpEntity::push (int port, Packet *packet)
 				if(ptype == FIN+DATA)
 				{
 					_control_block.nxt_ack = (_control_block.nxt_ack + 1) % 2;
-					WritablePacket *ack_pack = Packet::make(0,0,sizeof(MyTCPHeader) + sizeof(MyIPHeader),0);//leaving the space for MyIPHeader
+					WritablePacket *ack_pack = Packet::make(NULL,sizeof(MyTCPHeader) + sizeof(MyIPHeader));//leaving the space for MyIPHeader
 					memset(ack_pack,0,ack_pack->length());
 					((MyTCPHeader*)ack_pack)->type = FIN+ACK;
 					((MyTCPHeader*)ack_pack)->ack_num = (_control_block.nxt_ack);
@@ -229,10 +229,10 @@ void tcpEntity::push (int port, Packet *packet)
 				{
 					cancel_timer(&_ack_timer, _ack_tif);
 					_control_block.nxt_ack = (_control_block.nxt_ack + 1) % 2;
-					WritablePacket *data_pack = Packet::make(0,0,packet->length() - sizeof(MyTCPHeader),0);
+					WritablePacket *data_pack = Packet::make(NULL,packet->length() - sizeof(MyTCPHeader));
 					memcpy(data_pack, (char*)packet + sizeof(MyTCPHeader), packet->length() - sizeof(MyTCPHeader));
 					output(0).push(data_pack);
-					WritablePacket *ack_pack = Packet::make(0,0,sizeof(MyTCPHeader) + sizeof(MyIPHeader),0);//leaving the space for MyIPHeader
+					WritablePacket *ack_pack = Packet::make(NULL,sizeof(MyTCPHeader) + sizeof(MyIPHeader));//leaving the space for MyIPHeader
 					memset(ack_pack,0,ack_pack->length());
 					((MyTCPHeader*)ack_pack)->type = ACK;
 					((MyTCPHeader*)ack_pack)->ack_num = (_control_block.nxt_ack);
@@ -292,7 +292,7 @@ void tcpEntity::push (int port, Packet *packet)
 				}
 				//send ACK
 				_control_block.nxt_ack = (_control_block.nxt_ack + 1) % 2;
-				WritablePacket *ack_pack = Packet::make(0,0,sizeof(MyTCPHeader) + sizeof(MyIPHeader),0);//leaving the space for MyIPHeader
+				WritablePacket *ack_pack = Packet::make(NULL,sizeof(MyTCPHeader) + sizeof(MyIPHeader));//leaving the space for MyIPHeader
 				memset(ack_pack,0,ack_pack->length());
 				((MyTCPHeader*)ack_pack)->type = ACK;
 				((MyTCPHeader*)ack_pack)->ack_num = (_control_block.nxt_ack);
@@ -325,7 +325,7 @@ void tcpEntity::push (int port, Packet *packet)
 				
 				if(_control_block.pbuff.empty())
 				{
-					WritablePacket *fin_pack = Packet::make(0,0,sizeof(MyTCPHeader) + sizeof(MyIPHeader),0);//leaving the space for MyIPHeader
+					WritablePacket *fin_pack = Packet::make(NULL,sizeof(MyTCPHeader) + sizeof(MyIPHeader));//leaving the space for MyIPHeader
 					memset(fin_pack,0,fin_pack->length());
 					((MyTCPHeader*)fin_pack)->type = FIN;
 					((MyTCPHeader*)fin_pack)->source = (_my_port_number);
