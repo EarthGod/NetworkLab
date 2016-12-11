@@ -31,7 +31,7 @@ ip::~ip(){
 int ip::initialize(ErrorHandler *errh){
 	timer_update.initialize(this);
 	timer_hello.initialize(this);
-	timer_update.schedule_now();
+	timer_update.schedule_after_sec(10);
 	timer_hello.schedule_now();
     return 0;
 }
@@ -101,7 +101,7 @@ void ip::push(int port, Packet *packet) {
 	if(port == 0){
 		struct MyTCPHeader *tcpheader = (struct MyTCPHeader*)packet->data();
 		if (this->ip_port_table.find(tcpheader->dest_ip) == this->ip_port_table.end()){
-			click_chatter("NOT FOUND IN ROUTER TABLE: %d; PORT: %d;", tcpheader->dest_ip, port);
+			click_chatter("NOT FOUND IN ROUTER TABLE: %x; PORT: %d;", tcpheader->dest_ip, port);
 			return;
 		}
 		click_chatter("%x: Received packet from %x on port %d, type: %d", this->ip_addr, tcpheader->source, port,tcpheader->type);

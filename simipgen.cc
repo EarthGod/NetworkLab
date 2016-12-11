@@ -17,7 +17,7 @@ simipgen::~simipgen(){
 int simipgen::configure(Vector<String> &conf, ErrorHandler *errh)
 {
 	if (cp_va_kparse(conf, this, errh,
-                  "SRC_IP", cpkP+cpkM, cpIPAddress, &_dst_ip,
+                  "SRC_IP", cpkP+cpkM, cpIPAddress, &_src_ip,
 				  "DST_IP", cpkP+cpkM, cpIPAddress, &_dst_ip,
                   cpEnd) < 0) {
     return -1;
@@ -42,6 +42,7 @@ void simipgen::run_timer(Timer *timer) {
     WritablePacket *packet = Packet::make(header,sizeof(struct MyTCPHeader)+5);
     char* loc2write=(char*)(packet->data()+sizeof(struct MyTCPHeader));
     memcpy(loc2write, "hello", 5);
+    output(0).push(packet);
     _timer.reschedule_after_sec(2);
 }
 
