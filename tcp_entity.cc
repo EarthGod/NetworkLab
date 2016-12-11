@@ -50,6 +50,38 @@ int tcp_entity::initialize(ErrorHandler*)
 		_control_block.state = LISTEN;
 }
 
+
+void tcp_entity::set_resend_timer(Timer* _timer, TimerInfo tif)
+{
+	if(_timer == _ack_timer)
+	{
+		_ack_tif = tif;
+		_ack_timer.schedule_after_msec(_time_out);
+	}
+	else if(_timer == _fin_timer)
+	{
+		_fin_tif = tif;
+		_fin_timer.schedule_after_msec(2 * _time_out);
+	}
+}
+
+
+void tcp_entity::cancel_timer(Timer* _timer, TimerInfo tif)
+{
+	if(_timer == _ack_timer)
+	{
+		if(_ack_tif.tsat == tif.tsat && _ack_tif.tseq == tif.tseq && _ack_tif.tack == tif.tack)
+				_ack_timer.unschedule();
+		return;
+	}
+	else if(_timer == _fin_timer)
+	{
+		if(_seq_tif.tsat == tif.tsat && _seq_tif.tseq == tif.tseq && _seq_tif.tack == tif.tack)
+				_ack_timer.unschedule();
+		return;
+	}
+}
+
 void tcp_entity::push (int port, Packet *packet)
 {
 	
@@ -106,6 +138,7 @@ void tcp_entity::push (int port, Packet *packet)
 				(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
 				(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
 				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+				set_resend_timer(_ack_timer, TimerInfo(SYN_SENT,nxt_seq,nxt_ack,ack_pack));
 				output(1).push(ack_pack);
 				break;
 			}
@@ -139,14 +172,16 @@ void tcp_entity::push (int port, Packet *packet)
 					(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
 					(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
 					output(1).push(ack_pack);
-					_fin_timer.schedule_after_sec(2 * _time_out);
+					set_resend_timer(_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+					set_fin_timer(_fin_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 					_control_block.stat = FIN_WAIT;
 					break;
 				}
 				
 				
-				else
+				else if(ptype == DATA)
 				{
+					cancel_timer(_ack_timer, _ack_tif);
 					nxt_ack = (nxt_ack + 1) % 2;
 					WritablePacket *data_pack = Packet::make(0,0,packet.length() - sizeof(tcp_header),0)
 					memcpy(data_pack, (char*)packet + sizeof(tcp_header), packet.length() - sizeof(tcp_header));
@@ -159,7 +194,7 @@ void tcp_entity::push (int port, Packet *packet)
 					(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
 					(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
 					(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
-					_fin_timer.schedule_after_sec(_time_out);// to be modified
+					set_resend_timer(_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 					output(1).push(ack_pack);
 					break;
 					
@@ -180,7 +215,7 @@ void tcp_entity::push (int port, Packet *packet)
 				else
 				{
 					_control_block.nxt_ack = _control_block.nxt_seq = 0;
-					state = CLOSED;
+					_control_block.state = CLOSED;
 					break;
 				}
 				
@@ -212,6 +247,7 @@ void tcp_entity::push (int port, Packet *packet)
 				(tcp_header*)ack_pack->destination = htons(_control_block.tcpport);
 				(tcp_header*)ack_pack->source_ip = htonl(_my_ipaddr);
 				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
+				set_resend_timer(_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				output(1).push(ack_pack);
 			}
 			case SYN_WAIT:
@@ -229,11 +265,13 @@ void tcp_entity::push (int port, Packet *packet)
 					packet->kill();
 					break;
 				}
+				cancel_timer(_ack_timer, _ack_tif);
 				nxt_ack = (nxt_ack + 1) % 2;
 				WritablePacket *data_pack = Packet::make(0,0,packet.length() - sizeof(tcp_header),0)
 				memcpy(data_pack, (char*)packet + sizeof(tcp_header), packet.length() - sizeof(tcp_header));
 				output(0).push(data_pack);
 				// sending ACK+DATA
+				
 				assert(pbuff.front());
 				uint32_t tlen = pbuff.front()->length();
 				WritablePacket *ack_pack = pbuff.front()->clone()->push(sizeof(tcp_header));// add the header on
@@ -249,6 +287,7 @@ void tcp_entity::push (int port, Packet *packet)
 				nxt_seq = (nxt_seq + 1) % 2;
 				pbuff.pop_front();
 				_control_block.state = ESTAB;
+				set_resend_timer(_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				output(1).push(ack_pack);
 				break;			
 			}
@@ -279,12 +318,13 @@ void tcp_entity::push (int port, Packet *packet)
 					(tcp_header*)fin_pack->destination = htons(_control_block.tcpport);
 					(tcp_header*)fin_pack->source_ip = htonl(_my_ipaddr);
 					(tcp_header*)fin_pack->dest_ip = htonl(sipaddr);
+					set_resend_timer(_fin_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,fin_pack));
 					output(1).push(fin_pack);
 					break;
 				}
+				cancel_timer(_ack_timer, _ack_tif);
 				uint32_t tlen = pbuff.front()->length();
 				WritablePacket *ack_pack = pbuff.front()->clone()->push(sizeof(tcp_header));// add the header on
-				
 				(tcp_header*)ack_pack->type = DATA;
 				(tcp_header*)ack_pack->sequence = htons(_control_block.nxt_seq);
 				(tcp_header*)ack_pack->ack_num = htons(nxt_ack);
@@ -295,6 +335,7 @@ void tcp_entity::push (int port, Packet *packet)
 				(tcp_header*)ack_pack->dest_ip = htonl(sipaddr);
 				nxt_seq = (nxt_seq + 1) % 2;
 				pbuff.pop_front();
+				set_resend_timer(_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				output(1).push(ack_pack);
 				
 			}
@@ -325,11 +366,12 @@ void tcp_entity::push (int port, Packet *packet)
 void BasicClient::run_timer(Timer *timer) {
     if(timer == _fin_timer)
 	{
-		
+		_control_block.nxt_ack = _control_block.nxt_seq = 0;
+		_control_block.state = CLOSED;
 	}
 	else if(timer == _ack_timer)
 	{
-		
+		output(1).push(_ack_tif.pack);
 	}
 }
 CLICK_ENDDECLS
