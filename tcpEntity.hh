@@ -10,7 +10,7 @@ CLICK_DECLS
 
 
 typedef enum{
-	CLOSED,
+	CLOSED=0,
 	LISTEN,
 	SYN_SENT,
 	SYN_WAIT,
@@ -59,6 +59,7 @@ class tcpEntity : public Element {
     private: 
         Timer _fin_timer;
 		Timer _ack_timer;
+		Timer _debug_timer;
 		TimerInfo _fin_tif;
 		TimerInfo _ack_tif;
 		TCB _control_block;

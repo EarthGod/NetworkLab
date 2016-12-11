@@ -35,8 +35,11 @@ int PacketGenerator::initialize(ErrorHandler *errh){
 
 void PacketGenerator::run_timer(Timer *timer) {
     assert(timer == &_timer);
-    int tmp = 0xffffffff;
-    WritablePacket *packet = Packet::make(&tmp,5);
+    WritablePacket *packet = Packet::make(NULL,sizeof(MyClientHeader)+5);
+	memcpy(packet->data()+sizeof(MyClientHeader), "hello", 5);
+	MyClientHeader* th = (MyClientHeader*)packet->data();
+	th->dst_port = _dst_port;
+	th->dst_ip = _dst_ip;
     output(0).push(packet);
     _timer.reschedule_after_sec(2);
 }
