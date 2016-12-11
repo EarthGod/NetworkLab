@@ -52,7 +52,7 @@ void ip::run_timer(Timer *timer){
 		int cnt = 0;
 		for (int i = 0; i < POINTCOUNT; ++i)
 			for (int j = 0; j < POINTCOUNT; ++j)
-				if(this->adjacentMatrix[i][j] != INF)
+				if(this->adjacentMatrix[i][j] != INF && this->adjacentMatrix[i][j] != 0)
 					cnt++;
 		WritablePacket *packet = Packet::make(NULL,sizeof(struct MyIPHeader)+12*cnt);
 	    struct MyIPHeader *format = (struct MyIPHeader*) packet->data();
@@ -72,6 +72,7 @@ void ip::run_timer(Timer *timer){
 	    		}
 	    	}
 	    }
+	    click_chatter("%x: BROADCASTING adjacentMatrix. PORTCOUNT: %d", this->ip_addr, PORTCOUNT);
 	    for (int i = 1; i < PORTCOUNT; ++i)
 	    	output(i).push(packet);
 	    timer_update.schedule_after_sec(TIMERPERIOD);
@@ -84,6 +85,7 @@ void ip::run_timer(Timer *timer){
 		format->destination = 0xffffffff; // stands for broadcast
 		format->ttl = 1; //time to live
 	    format->size = sizeof(struct MyIPHeader);
+	    click_chatter("%x: BROADCASTING HELLO. PORTCOUNT: %d", this->ip_addr, PORTCOUNT);
 	    for(int i = 1; i < PORTCOUNT; ++i)
 	    	output(i).push(packet);
 	    timer_update.schedule_after_sec(TIMERPERIOD);
@@ -100,10 +102,9 @@ void ip::push(int port, Packet *packet) {
 		struct MyTCPHeader *tcpheader = (struct MyTCPHeader*)packet->data();
 		if (this->ip_port_table.find(tcpheader->dest_ip) == this->ip_port_table.end()){
 			click_chatter("NOT FOUND IN ROUTER TABLE: %d; PORT: %d;", tcpheader->dest_ip, port);
-			packet->kill();
 			return;
 		}
-		click_chatter("Received packet from %x on port %d, type: %d", tcpheader->source, port,tcpheader->type);
+		click_chatter("%x: Received packet from %x on port %d, type: %d", this->ip_addr, tcpheader->source, port,tcpheader->type);
 		//wrap
 		WritablePacket* newpacket = Packet::make(NULL,sizeof(struct MyIPHeader)+(tcpheader->size));
 	    struct MyIPHeader* format = (struct MyIPHeader*) newpacket->data();
@@ -115,15 +116,16 @@ void ip::push(int port, Packet *packet) {
 		char *data = (char*)(newpacket->data()+sizeof(struct MyIPHeader));
 		memcpy(data, tcpheader, tcpheader->size);
 		//send
+		click_chatter("%x: sending to other ip element!", this->ip_addr);
 		output(findport(ip_port_table[tcpheader->dest_ip])).push(newpacket);
 	}
 	else{
 		struct MyIPHeader *ipheader = (struct MyIPHeader*)packet->data();
 		if (ipheader->ttl <= 0){
-			packet->kill();
+			click_chatter("Wrong TTL!!");
 			return;
 		}
-		click_chatter("Received packet from %x on port %d, type: %d", ipheader->source, port, ipheader->type);
+		click_chatter("%x: Received packet from %x on port %d, type: %d", this->ip_addr, ipheader->source, port, ipheader->type);
 		if (ipheader->type == HELLO){
 			//HELLO: return the topology this router know
 			WritablePacket* newpacket = Packet::make(NULL,sizeof(struct MyIPHeader));
@@ -133,6 +135,7 @@ void ip::push(int port, Packet *packet) {
 			format->destination = ipheader->source;
 			format->ttl = 1;
 			format->size = sizeof(struct MyIPHeader);
+			click_chatter("%x: sending to other ip element!", this->ip_addr);
 			output(port).push(newpacket);
 			return;
 		}
@@ -142,7 +145,7 @@ void ip::push(int port, Packet *packet) {
 			port_ip_table[port] = ipheader->source;
 			adjacentMatrix[0][port] = 1;
 			adjacentMatrix[port][0] = 1;
-			packet->kill();
+			click_chatter("%x: updated adjacentMatrix!", this->ip_addr);
 			return;
 		}
 		else if (ipheader->type == BROAD){
@@ -162,6 +165,7 @@ void ip::push(int port, Packet *packet) {
 			}
 			dijkstra();
 			ipheader->ttl--;
+			click_chatter("%x: Forwarding BROADCASTING packet. PORTCOUNT: %d", this->ip_addr, PORTCOUNT);
 			for (int i = 1; i < POINTCOUNT; ++i){
 				if (i != port){
 					output(i).push(packet);
@@ -171,12 +175,14 @@ void ip::push(int port, Packet *packet) {
 		}
 		if (ipheader->destination == this->ip_addr){
 			//push to TCP through port 0;
+			click_chatter("%x: Forwarding to TCP", this->ip_addr);
 			WritablePacket* newpacket = Packet::make(NULL, ipheader->size - sizeof(MyIPHeader));
 			memcpy(newpacket, packet->data()+sizeof(MyIPHeader), ipheader->size - sizeof(MyIPHeader));
 			output(0).push(newpacket);
 			return;
 		}
 		if(ip_port_table.find(ipheader->destination) != ip_port_table.end()){
+			click_chatter("%x: Forwarding to other IP", this->ip_addr);
 			ipheader->ttl--;
 			output(findport(ip_port_table[ipheader->destination])).push(packet);
 			return;

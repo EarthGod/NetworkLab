@@ -26,11 +26,11 @@ struct MyTCPHeader{
 };
 
 struct MyIPHeader{
-     uint8_t type; 
+     uint16_t type;
+     uint16_t ttl;
      uint32_t source;
      uint32_t destination;
      uint32_t size;
-     uint32_t ttl;
 };
 
 #endif
