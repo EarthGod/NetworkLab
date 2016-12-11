@@ -14,8 +14,8 @@ ip3 :: ip(IP_ADDR 5.6.7.8);
 
 cl1 :: simipgen(1.2.3.4, 2.3.4.5);
 
-cl1->[0]ip1[1]->rp1;
-rp1->[1]ip3;
+cl1->[0]ip1[1]->Print()->rp1;
+rp1->Print()->[1]ip3;
 ip3[1]->rp3;
 rp3->[1]ip2[0]->Discard();
 
