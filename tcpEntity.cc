@@ -95,23 +95,32 @@ void tcpEntity::push (int port, Packet *packet)
 			WritablePacket* wp = Packet::make(NULL,packet->length()-sizeof(MyClientHeader));
 			memcpy(wp->data(),packet->data()+sizeof(MyClientHeader),packet->length());
 			pbuff.push_back(wp);
-			
+			if(dstport == tcpport && ipaddr == dstip)
+			{
+				assert(state == ESTAB);
+				//fprintf(stderr, "TCP server has connected to the destination.\n");
+				
+			}
 			//send SYN
-			//fprintf(stderr, "sending SYN to %d %x\n", dstport, dstip);
-			ipaddr = dstip;
-			tcpport = dstport;
-			
-			WritablePacket* syn_pack = Packet::make(NULL,sizeof(MyTCPHeader));
-			((MyTCPHeader*)syn_pack->data())->type = SYN;
-			((MyTCPHeader*)syn_pack->data())->ack_num = nxt_ack;
-			((MyTCPHeader*)syn_pack->data())->sequence = nxt_seq;
-			((MyTCPHeader*)syn_pack->data())->source = _my_port_number;
-			((MyTCPHeader*)syn_pack->data())->destination = dstport;
-			((MyTCPHeader*)syn_pack->data())->source_ip = _my_ipaddr;
-			((MyTCPHeader*)syn_pack->data())->dest_ip = dstip;
-			set_resend_timer(&_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,syn_pack));
-			state = SYN_SENT;
-			output(0).push(syn_pack);
+			else
+			{
+				//fprintf(stderr, "sending SYN to %d %x\n", dstport, dstip);
+				assert(state == CLOSED);
+				ipaddr = dstip;
+				tcpport = dstport;
+				
+				WritablePacket* syn_pack = Packet::make(NULL,sizeof(MyTCPHeader));
+				((MyTCPHeader*)syn_pack->data())->type = SYN;
+				((MyTCPHeader*)syn_pack->data())->ack_num = nxt_ack;
+				((MyTCPHeader*)syn_pack->data())->sequence = nxt_seq;
+				((MyTCPHeader*)syn_pack->data())->source = _my_port_number;
+				((MyTCPHeader*)syn_pack->data())->destination = dstport;
+				((MyTCPHeader*)syn_pack->data())->source_ip = _my_ipaddr;
+				((MyTCPHeader*)syn_pack->data())->dest_ip = dstip;
+				set_resend_timer(&_ack_timer, TimerInfo(CLOSED,nxt_seq,nxt_ack,syn_pack));
+				state = SYN_SENT;
+				output(0).push(syn_pack);
+			}
 			
 		}
 	}
@@ -346,6 +355,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)ack_pack->data())->size = 0;
 				((MyTCPHeader*)ack_pack->data())->source_ip = _my_ipaddr;
 				((MyTCPHeader*)ack_pack->data())->dest_ip = sipaddr;
+				set_resend_timer(&_ack_timer, _ack_tif=TimerInfo(SYN_SENT,nxt_seq,nxt_ack,ack_pack));
 				state=ESTAB;
 				output(0).push(ack_pack);
 				break;
@@ -427,7 +437,7 @@ void tcpEntity::push (int port, Packet *packet)
 				}
 				//fprintf(stderr, "TCP server : recieved ack for fin from %d %x\n", sport, sipaddr);
 				cancel_timer(&_ack_timer, _ack_tif);
-				(nxt_ack = nxt_ack + 1) % 2;
+				nxt_ack = (nxt_ack + 1) % 2;
 				WritablePacket *ack_pack = Packet::make(NULL,sizeof(MyTCPHeader));
 				((MyTCPHeader*)ack_pack->data())->type = ACK;
 				((MyTCPHeader*)ack_pack->data())->sequence = nxt_seq;
