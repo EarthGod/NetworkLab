@@ -18,6 +18,7 @@ class PacketGenerator : public Element {
 		int configure(Vector<String> &conf, ErrorHandler *errh);
     private: 
         Timer _timer;
+		uint16_t seq;
 		uint16_t _dst_port; 
 		uint32_t _dst_ip;
 }; 

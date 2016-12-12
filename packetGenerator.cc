@@ -30,13 +30,19 @@ int PacketGenerator::configure(Vector<String> &conf, ErrorHandler *errh)
 int PacketGenerator::initialize(ErrorHandler *errh){
     _timer.initialize(this);
     _timer.schedule_now();
+	seq = 1;
     return 0;
 }
 
 void PacketGenerator::run_timer(Timer *timer) {
     assert(timer == &_timer);
-    WritablePacket *packet = Packet::make(NULL,sizeof(MyClientHeader)+5);
-	memcpy(packet->data()+sizeof(MyClientHeader), "hello", 5);
+	seq++;
+	char dat[7];
+	dat[0] = 'h';dat[1]='e';dat[2]='l';dat[3]='l';dat[4]='o';
+	dat[5] = seq + '0'; 
+	dat[6] = '\0';
+    WritablePacket *packet = Packet::make(NULL,sizeof(MyClientHeader)+7);
+	memcpy(packet->data()+sizeof(MyClientHeader), dat, 7);
 	MyClientHeader* th = (MyClientHeader*)packet->data();
 	th->dst_port = _dst_port;
 	th->dst_ip = _dst_ip;
