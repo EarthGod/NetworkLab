@@ -9,7 +9,7 @@ using std::map;
 
 //NOT GOOD; SHOULD KNOW HOW MANY PORTS ARE DEFINED IN xx.click
 #define PORTCOUNT (this->nports(false))
-#define POINTCOUNT 5
+#define POINTCOUNT 50
 #define INF 1000000
 #define TIMERPERIOD 2
 
@@ -195,7 +195,7 @@ void ip::push(int port, Packet *packet) {
 					this->adjacentMatrix[ipaddr2mat[addr2]][ipaddr2mat[addr1]] = dist;
 				}
 			}
-			click_chatter("parse BROAD finished!! now printing matrix: ");
+			click_chatter("%x: parse BROAD finished!! now printing matrix: ", this->ip_addr);
 			for (int i = 0; i <= ptcnt; ++i){
 				for (int j = 0; j <= ptcnt; ++j){
 					if (adjacentMatrix[i][j] != INF){
@@ -250,7 +250,7 @@ void ip::dijkstra(){
 				this->path[i] = minpos;
 			}
 	}
-	click_chatter("\nDIJKSTRA FINISHED! PRINTING PATH&DIST!");
+	click_chatter("%x: DIJKSTRA FINISHED! PRINTING PATH&DIST!", this->ip_addr);
 	click_chatter("path:");
 	for (int i = 0; i <= ptcnt; ++i)
 		click_chatter("ipaddr-%x, numbered-%d!!! dist: %d, path: %d", mat2ipaddr[i], i, dist[i], path[i]);

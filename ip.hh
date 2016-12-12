@@ -9,7 +9,7 @@ using std::map;
 
 CLICK_DECLS
 
-const int maxn = 100;
+const int maxn = 50+5;
 class ip : public Element {
     public:
         ip();
