@@ -106,7 +106,7 @@ void ip::push(int port, Packet *packet) {
 	assert(packet);
 	//Assume that IP get packet from TCP through data 0;
 	if(port == 0){
-		struct MyTCPHeader *tcpheader = (struct MyTCPHeader*)packet->data();
+		struct MyTCPHeader *tcpheader = (struct MyTCPHeader*)(packet->data());
 		if (ipaddr2mat.find(tcpheader->dest_ip) == ipaddr2mat.end()){
 			//click_chatter("%x: NOT FOUND IN ROUTER TABLE: %x; PORT: %d;", this->ip_addr, tcpheader->dest_ip, port);
 			packet->kill();
@@ -211,6 +211,8 @@ void ip::push(int port, Packet *packet) {
 			packet->kill();
 			return;
 		}
+		assert(ipheader->type == DATA);
+		//click_chatter("000-%x: DESTIP: %x", this->ip_addr, ipheader->destination);
 		if (ipheader->destination == this->ip_addr){
 			//push to TCP through port 0;
 			//click_chatter("999-%x: Forwarding to TCP", this->ip_addr);
@@ -219,7 +221,7 @@ void ip::push(int port, Packet *packet) {
 			return;
 		}
 		if(ipaddr2mat.find(ipheader->destination) != ipaddr2mat.end()){
-			//click_chatter("000-%x: Forwarding to other IP", this->ip_addr);
+			//click_chatter("000-%x: Forwarding to other IP. Port: %d", this->ip_addr,findport(ipaddr2mat[ipheader->destination]));
 			ipheader->ttl--;
 			output(findport(ipaddr2mat[ipheader->destination])).push(packet);
 			return;
