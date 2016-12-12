@@ -19,14 +19,6 @@ typedef enum{
 	FIN_WAIT,
 } stat;
 
-struct TCB{
-	uint32_t ipaddr;
-	uint16_t tcpport;
-	int nxt_ack; //0 or 1
-	int nxt_seq; //0 or 1
-	stat state;
-	deque<WritablePacket*> pbuff;
-};
 
 class TimerInfo{
 public:
@@ -37,7 +29,9 @@ public:
 	TimerInfo(){};
 
 	TimerInfo(stat _tstat, uint16_t _tseq, uint16_t _tack, WritablePacket* _pack){
-		tstat = _tstat;tseq = _tseq;tack = _tack;pack = _pack;
+		tstat = _tstat;tseq = _tseq;tack = _tack;
+		WritablePacket* ret = Packet::make(_pack->data(),_pack->length());
+		pack = ret;
 	}
 };
 
@@ -62,11 +56,17 @@ class tcpEntity : public Element {
 		Timer _debug_timer;
 		TimerInfo _fin_tif;
 		TimerInfo _ack_tif;
-		TCB _control_block;
 		uint32_t tcpEntity_type; //0 for client, 1 for server
 		uint32_t _my_ipaddr;
 		uint32_t _time_out;//msec
 		uint16_t _my_port_number;
+		
+		uint32_t ipaddr;
+		uint16_t tcpport;
+		int nxt_ack; //0 or 1
+		int nxt_seq; //0 or 1
+		stat state;
+		deque<WritablePacket*> pbuff;
 		
 }; 
 
