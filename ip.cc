@@ -229,6 +229,13 @@ void ip::push(int port, Packet *packet) {
 		else{
 			//not found in routing table
 			//discard
+			
+			//flood?
+			/*
+			for (int i = 1; i < PORTCOUNT; ++i){
+				output(i).push(packet);
+			}
+			*/
 		}
 	}
 }
