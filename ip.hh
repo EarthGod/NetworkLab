@@ -27,6 +27,9 @@ class ip : public Element {
 		
 	private:
         
+        int ptcnt;
+        map <int, uint32_t> mat2ipaddr;
+        map <uint32_t, int> ipaddr2mat;
 
         uint32_t ip_addr;
 		map<uint32_t, int> ip_port_table;

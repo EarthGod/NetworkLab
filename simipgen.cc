@@ -42,8 +42,9 @@ void simipgen::run_timer(Timer *timer) {
     WritablePacket *packet = Packet::make(header,sizeof(struct MyTCPHeader)+5);
     char* loc2write=(char*)(packet->data()+sizeof(struct MyTCPHeader));
     memcpy(loc2write, "hello", 5);
+    _timer.schedule_after_sec(1);
     output(0).push(packet);
-    _timer.reschedule_after_sec(2);
+    click_chatter("haahhahaha");
 }
 
 CLICK_ENDDECLS 
