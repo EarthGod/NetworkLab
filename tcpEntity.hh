@@ -11,7 +11,6 @@ CLICK_DECLS
 
 typedef enum{
 	CLOSED=0,
-	LISTEN,
 	SYN_SENT,
 	SYN_WAIT,
 	ESTAB,
@@ -52,10 +51,10 @@ class tcpEntity : public Element {
 		void cancel_timer(Timer* _timer, TimerInfo tif);
     private: 
         Timer _fin_timer;
-		Timer _ack_timer;
+		Timer _resend_timer;
 		Timer _debug_timer;
 		TimerInfo _fin_tif;
-		TimerInfo _ack_tif;
+		TimerInfo _resend_tif;
 		uint32_t tcpEntity_type; //0 for client, 1 for server
 		uint32_t _my_ipaddr;
 		uint32_t _time_out;//msec

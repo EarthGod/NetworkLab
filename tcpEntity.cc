@@ -7,7 +7,7 @@
 //using std::vector;
 CLICK_DECLS
 
-tcpEntity::tcpEntity() : _fin_timer(this), _ack_timer(this), _debug_timer(this){	
+tcpEntity::tcpEntity() : _fin_timer(this), _resend_timer(this), _debug_timer(this){	
 }
 
 tcpEntity::~tcpEntity(){	
@@ -34,7 +34,7 @@ int tcpEntity :: configure(Vector<String> &conf, ErrorHandler *errh)
 int tcpEntity::initialize(ErrorHandler*)
 {
 	_fin_timer.initialize(this);
-	_ack_timer.initialize(this);
+	_resend_timer.initialize(this);
 	nxt_ack = 0;
 	nxt_seq = 0;
 	tcpport = 0;
@@ -45,10 +45,10 @@ int tcpEntity::initialize(ErrorHandler*)
 
 void tcpEntity::set_resend_timer(Timer* _timer, TimerInfo tif)
 {
-	if(_timer == &_ack_timer)
+	if(_timer == &_resend_timer)
 	{
-		_ack_tif = tif;
-		_ack_timer.schedule_after_msec(_time_out);
+		_resend_tif = tif;
+		_resend_timer.schedule_after_msec(_time_out);
 	}
 	else if(_timer == &_fin_timer)
 	{
@@ -60,10 +60,10 @@ void tcpEntity::set_resend_timer(Timer* _timer, TimerInfo tif)
 
 void tcpEntity::cancel_timer(Timer* _timer, TimerInfo tif)
 {
-	if(_timer == &_ack_timer)
+	if(_timer == &_resend_timer)
 	{
-		if(_ack_tif.tstat == tif.tstat && _ack_tif.tseq == tif.tseq && _ack_tif.tack == tif.tack)
-				_ack_timer.unschedule();
+		if(_resend_tif.tstat == tif.tstat && _resend_tif.tseq == tif.tseq && _resend_tif.tack == tif.tack)
+				_resend_timer.unschedule();
 		return;
 	}
 	else if(_timer == &_fin_timer)
@@ -117,7 +117,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)syn_pack->data())->destination = dstport;
 				((MyTCPHeader*)syn_pack->data())->source_ip = _my_ipaddr;
 				((MyTCPHeader*)syn_pack->data())->dest_ip = dstip;
-				set_resend_timer(&_ack_timer, TimerInfo(CLOSED,nxt_seq,nxt_ack,syn_pack));
+				set_resend_timer(&_resend_timer, TimerInfo(CLOSED,nxt_seq,nxt_ack,syn_pack));
 				state = SYN_SENT;
 				output(0).push(syn_pack);
 			}
@@ -165,7 +165,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)ack_pack->data())->destination = (tcpport);
 				((MyTCPHeader*)ack_pack->data())->source_ip = (_my_ipaddr);
 				((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
-				set_resend_timer(&_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+				set_resend_timer(&_resend_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				state = SYN_WAIT;
 				output(0).push(ack_pack);
 				break;
@@ -200,7 +200,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)ack_pack->data())->destination = tcpport;
 				((MyTCPHeader*)ack_pack->data())->source_ip = _my_ipaddr;
 				((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
-				set_resend_timer(&_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+				set_resend_timer(&_resend_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				output(0).push(ack_pack);
 				break;	
 				
@@ -240,7 +240,7 @@ void tcpEntity::push (int port, Packet *packet)
 					((MyTCPHeader*)ack_pack->data())->destination = tcpport;
 					((MyTCPHeader*)ack_pack->data())->source_ip = _my_ipaddr;
 					((MyTCPHeader*)ack_pack->data())->dest_ip = sipaddr;
-					set_resend_timer(&_ack_timer, _ack_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+					set_resend_timer(&_resend_timer, _resend_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 					set_resend_timer(&_fin_timer, _fin_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 					nxt_seq = (nxt_seq + 1) % 2;
 					state = FIN_WAIT;
@@ -253,7 +253,7 @@ void tcpEntity::push (int port, Packet *packet)
 				{
 					//fprintf(stderr, "TCP client : recieved DATA from %d %x\n", sport, sipaddr);
 					//send to client
-					cancel_timer(&_ack_timer, _ack_tif);
+					cancel_timer(&_resend_timer, _resend_tif);
 					nxt_ack = (nxt_ack + 1) % 2;
 					WritablePacket *data_pack = Packet::make(NULL,packet->length() - sizeof(MyTCPHeader));
 					memcpy(data_pack->data(), (char*)(packet->data()) + sizeof(MyTCPHeader), packet->length() - sizeof(MyTCPHeader));
@@ -267,7 +267,7 @@ void tcpEntity::push (int port, Packet *packet)
 					((MyTCPHeader*)ack_pack->data())->destination = tcpport;
 					((MyTCPHeader*)ack_pack->data())->source_ip = _my_ipaddr;
 					((MyTCPHeader*)ack_pack->data())->dest_ip = (sipaddr);
-					set_resend_timer(&_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+					set_resend_timer(&_resend_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 					output(0).push(ack_pack);
 					break;
 					
@@ -289,7 +289,7 @@ void tcpEntity::push (int port, Packet *packet)
 				{
 					//fprintf(stderr, "TCP Cclient : recieved ACK for FIN from %d %x\n", sport, sipaddr);
 					cancel_timer(&_fin_timer, _fin_tif);
-					cancel_timer(&_ack_timer, _ack_tif);
+					cancel_timer(&_resend_timer, _resend_tif);
 					nxt_ack = nxt_seq = 0;
 					ipaddr=tcpport=0;
 					state = CLOSED;
@@ -324,7 +324,7 @@ void tcpEntity::push (int port, Packet *packet)
 				}
 				//send ACK
 				//fprintf(stderr, "recieved SYN+ACK from %d %x\n", sport, sipaddr);
-				cancel_timer(&_ack_timer, _ack_tif);
+				cancel_timer(&_resend_timer, _resend_tif);
 				/*
 				//fprintf(stderr, "sending data!\n");
 				uint32_t tlen = pbuff.front()->length();
@@ -342,7 +342,7 @@ void tcpEntity::push (int port, Packet *packet)
 				memcpy(ack_pack->data()+sizeof(MyTCPHeader), pbuff.front()->data(), tlen);
 				nxt_seq = (nxt_seq + 1) % 2;
 				pbuff.pop_front();
-				set_resend_timer(&_ack_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+				set_resend_timer(&_resend_timer, TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				state = ESTAB;
 				output(0).push(ack_pack);
 				*/
@@ -355,7 +355,7 @@ void tcpEntity::push (int port, Packet *packet)
 				((MyTCPHeader*)ack_pack->data())->size = 0;
 				((MyTCPHeader*)ack_pack->data())->source_ip = _my_ipaddr;
 				((MyTCPHeader*)ack_pack->data())->dest_ip = sipaddr;
-				set_resend_timer(&_ack_timer, _ack_tif=TimerInfo(SYN_SENT,nxt_seq,nxt_ack,ack_pack));
+				set_resend_timer(&_resend_timer, _resend_tif=TimerInfo(SYN_SENT,nxt_seq,nxt_ack,ack_pack));
 				state=ESTAB;
 				output(0).push(ack_pack);
 				break;
@@ -391,13 +391,13 @@ void tcpEntity::push (int port, Packet *packet)
 					((MyTCPHeader*)fin_pack->data())->destination = tcpport;
 					((MyTCPHeader*)fin_pack->data())->source_ip = _my_ipaddr;
 					((MyTCPHeader*)fin_pack->data())->dest_ip = sipaddr;
-					set_resend_timer(&_ack_timer, _ack_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,fin_pack));
+					set_resend_timer(&_resend_timer, _resend_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,fin_pack));
 					state = FIN_SENT;
 					output(0).push(fin_pack);
 					break;
 				}
 				
-				cancel_timer(&_ack_timer, _ack_tif);
+				cancel_timer(&_resend_timer, _resend_tif);
 				uint32_t tlen = pbuff.front()->length();
 				WritablePacket *ack_pack = Packet::make(NULL,sizeof(MyTCPHeader)+tlen);// add the header on
 				((MyTCPHeader*)ack_pack->data())->type = DATA;
@@ -411,7 +411,7 @@ void tcpEntity::push (int port, Packet *packet)
 				memcpy(ack_pack->data()+sizeof(MyTCPHeader), pbuff.front()->data(), tlen);
 				nxt_seq = (nxt_seq + 1) % 2;
 				pbuff.pop_front();
-				set_resend_timer(&_ack_timer, _ack_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
+				set_resend_timer(&_resend_timer, _resend_tif=TimerInfo(ESTAB,nxt_seq,nxt_ack,ack_pack));
 				output(0).push(ack_pack);
 				break;
 			}
@@ -436,7 +436,7 @@ void tcpEntity::push (int port, Packet *packet)
 					break;
 				}
 				//fprintf(stderr, "TCP server : recieved ack for fin from %d %x\n", sport, sipaddr);
-				cancel_timer(&_ack_timer, _ack_tif);
+				cancel_timer(&_resend_timer, _resend_tif);
 				nxt_ack = (nxt_ack + 1) % 2;
 				WritablePacket *ack_pack = Packet::make(NULL,sizeof(MyTCPHeader));
 				((MyTCPHeader*)ack_pack->data())->type = ACK;
@@ -468,15 +468,15 @@ void tcpEntity::run_timer(Timer *timer) {
     if(timer == &_fin_timer)
 	{
 		//fprintf(stderr, "finTimer_fired!\n");
-		_ack_timer.unschedule();
+		_resend_timer.unschedule();
 		nxt_ack = nxt_seq = 0;
 		state = CLOSED;
 	}
-	else if(timer == &_ack_timer)
+	else if(timer == &_resend_timer)
 	{
 		//fprintf(stderr, "ackTimer fired!\n");
-		output(0).push(_ack_tif.pack);
-		set_resend_timer(&_ack_timer, _ack_tif);
+		output(0).push(_resend_tif.pack);
+		set_resend_timer(&_resend_timer, _resend_tif);
 	}
 }
 CLICK_ENDDECLS
