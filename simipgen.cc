@@ -44,7 +44,6 @@ void simipgen::run_timer(Timer *timer) {
     memcpy(loc2write, "hello", 5);
     _timer.schedule_after_sec(1);
     output(0).push(packet);
-    click_chatter("haahhahaha");
 }
 
 CLICK_ENDDECLS 

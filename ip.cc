@@ -71,7 +71,7 @@ void ip::run_timer(Timer *timer){
 	    	char* data = (char*)(packet->data()+sizeof(struct MyIPHeader));
 	    	for(int i = 0; i < POINTCOUNT; ++i){
 	    		for (int j = 0; j < POINTCOUNT; ++j){
-	    			if(this->adjacentMatrix[i][j] != INF){
+	    			if(this->adjacentMatrix[i][j] != INF && i != j){
 	    				memcpy(data, &mat2ipaddr[i], sizeof(uint32_t));
 	    				memcpy(data+4, &mat2ipaddr[j], sizeof(uint32_t));
 	    				memcpy(data+8, &this->adjacentMatrix[i][j], sizeof(int));
@@ -107,7 +107,7 @@ void ip::push(int port, Packet *packet) {
 	//Assume that IP get packet from TCP through data 0;
 	if(port == 0){
 		struct MyTCPHeader *tcpheader = (struct MyTCPHeader*)packet->data();
-		if (ip_port_table.find(tcpheader->dest_ip) == ip_port_table.end() || findport(ip_port_table[tcpheader->dest_ip]) == -1){
+		if (ipaddr2mat.find(tcpheader->dest_ip) == ipaddr2mat.end()){
 			click_chatter("%x: NOT FOUND IN ROUTER TABLE: %x; PORT: %d;", this->ip_addr, tcpheader->dest_ip, port);
 			packet->kill();
 			return;
@@ -125,7 +125,9 @@ void ip::push(int port, Packet *packet) {
 		memcpy(data, tcpheader, tcpheader->size);
 		//send
 		click_chatter("444-%x: sending to other ip element! Port: %d", this->ip_addr, findport(ip_port_table[tcpheader->dest_ip]));
-		output(findport(ip_port_table[tcpheader->dest_ip])).push(newpacket);
+		int port2out = findport(ipaddr2mat[tcpheader->dest_ip]);
+		if (port2out != -1)
+			output(port2out).push(newpacket);
 	}
 	else{
 		struct MyIPHeader *ipheader = (struct MyIPHeader*)packet->data();
@@ -145,16 +147,20 @@ void ip::push(int port, Packet *packet) {
 		}
 		else if (ipheader->type == RESP){
 			//RESP: update the adjacent matrix
+			if(ipaddr2mat.find(ipheader->source) != ipaddr2mat.end()){
+				packet->kill();
+				return;
+			}
 			ip_port_table[ipheader->source] = port;
 			port_ip_table[port] = ipheader->source;
 			ptcnt++;
 			mat2ipaddr[ptcnt] = ipheader->source;
 			ipaddr2mat[ipheader->source] = ptcnt;
-			adjacentMatrix[0][port] = 1;
-			adjacentMatrix[port][0] = 1;
+			adjacentMatrix[0][ptcnt] = 1;
+			adjacentMatrix[ptcnt][0] = 1;
 			click_chatter("777-%x: updated adjacentMatrix! printing:", this->ip_addr);
-			for (int i = 0; i < ptcnt; ++i){
-				for (int j = 0; j < ptcnt; ++j){
+			for (int i = 0; i <= ptcnt; ++i){
+				for (int j = 0; j <= ptcnt; ++j){
 					if (adjacentMatrix[i][j] != INF){
 						click_chatter("%x, %x: %d", mat2ipaddr[i], mat2ipaddr[j], adjacentMatrix[i][j]);
 					}
@@ -173,11 +179,13 @@ void ip::push(int port, Packet *packet) {
 				uint32_t dist = *((uint32_t*)(data + 12*i + 8));
 				click_chatter("adding: %x, %x: %d", addr1, addr2, dist);
 				if(ipaddr2mat.find(addr1) == ipaddr2mat.end()){
+					click_chatter("NOT found addr1: %x!", addr1);
 					ptcnt++;
 					ipaddr2mat[addr1] = ptcnt;
 					mat2ipaddr[ptcnt] = addr1;
 				}
 				if(ipaddr2mat.find(addr2) == ipaddr2mat.end()){
+					click_chatter("NOT found addr2: %x!", addr2);
 					ptcnt++;
 					ipaddr2mat[addr2] = ptcnt;
 					mat2ipaddr[ptcnt] = addr2;
@@ -187,6 +195,14 @@ void ip::push(int port, Packet *packet) {
 					this->adjacentMatrix[ipaddr2mat[addr2]][ipaddr2mat[addr1]] = dist;
 				}
 			}
+			click_chatter("parse BROAD finished!! now printing matrix: ");
+			for (int i = 0; i <= ptcnt; ++i){
+				for (int j = 0; j <= ptcnt; ++j){
+					if (adjacentMatrix[i][j] != INF){
+						click_chatter("%x, %x: %d", mat2ipaddr[i], mat2ipaddr[j], adjacentMatrix[i][j]);
+					}
+				}
+			}
 			dijkstra();
 			packet->kill();
 			return;
@@ -194,8 +210,7 @@ void ip::push(int port, Packet *packet) {
 		if (ipheader->destination == this->ip_addr){
 			//push to TCP through port 0;
 			click_chatter("999-%x: Forwarding to TCP", this->ip_addr);
-			WritablePacket* newpacket = Packet::make(NULL, ipheader->size - sizeof(MyIPHeader));
-			memcpy(newpacket, packet->data()+sizeof(MyIPHeader), ipheader->size - sizeof(MyIPHeader));
+			WritablePacket* newpacket = Packet::make(packet->data()+sizeof(MyIPHeader), ipheader->size - sizeof(MyIPHeader));
 			output(0).push(newpacket);
 			return;
 		}
@@ -235,12 +250,16 @@ void ip::dijkstra(){
 				this->path[i] = minpos;
 			}
 	}
+	click_chatter("\nDIJKSTRA FINISHED! PRINTING PATH&DIST!");
+	click_chatter("path:");
+	for (int i = 0; i <= ptcnt; ++i)
+		click_chatter("ipaddr-%x, numbered-%d!!! dist: %d, path: %d", mat2ipaddr[i], i, dist[i], path[i]);
 }
 
 int ip::findport(int ptnum){
 	if(this->path[ptnum] == ipaddr2mat[ip_addr])
 		return ip_port_table[mat2ipaddr[ptnum]];
-	return findport(this->path[portnum]);
+	return findport(this->path[ptnum]);
 }
 
 CLICK_ENDDECLS 
